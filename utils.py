@@ -7,6 +7,7 @@ import os
 import sys
 import time
 import math
+import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -123,3 +124,14 @@ def format_time(seconds):
     if f == '':
         f = '0ms'
     return f
+
+def draw_fig_2_data(data_blue, data_red, start_count, count,x_label,y_label,batch):
+    index = [a for a in range(start_count, start_count+count,1)]
+    fig, ax = plt.subplots()
+    ax.plot(index,data_red, color='red', label='Train')
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    ax.plot(index,data_blue, color='blue', label='Test')
+    ax.legend()
+    plt.show()
+    plt.savefig(batch)

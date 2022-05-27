@@ -2,6 +2,8 @@
 from pickle import TRUE
 from pickletools import optimize
 from pkgutil import ImpImporter
+from turtle import color
+from numpy import array
 import torch
 import torch.nn as nn 
 import torch.optim as optim
@@ -13,20 +15,23 @@ import torchvision
 import torchvision.transforms as transforms
 
 import os 
+import datetime
+import matplotlib.pyplot as plt
 
 import argparse
 
 from zmq import device
 
 from model import *
-from utils import progress_bar
+from utils import progress_bar, draw_fig_2_data
 
 
 
 # print('Cuda ready',torch.cuda.is_available())
 
 if __name__ == "__main__":
-    
+    datetime_train = datetime.datetime.now()
+    epoch_plush = 2
     parser = argparse.ArgumentParser(description="PyTorch CIFAR10 Training")
     parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
     parser.add_argument('--resume','-r', action='store_true',
@@ -62,13 +67,13 @@ if __name__ == "__main__":
     trainset = torchvision.datasets.CIFAR10(
         root='./data', train=True, download=True, transform=transform_train)
     trainloader = torch.utils.data.DataLoader(
-        trainset, batch_size=50, shuffle=True, num_workers=2)
+        trainset, batch_size=32, shuffle=True, num_workers=2)
 
     testset = torchvision.datasets.CIFAR10(
         root='./data', train=False, download=True, transform=transform_test)
     testloader = torch.utils.data.DataLoader(
-        testset, batch_size=25, shuffle=False, num_workers=2)
-
+        testset, batch_size=16, shuffle=False, num_workers=2)
+    
     # Class
     classes = ('plane','car','bird','cat','deer',
             'dog','frog','horse','ship','truck')
@@ -76,7 +81,8 @@ if __name__ == "__main__":
     # Model
     print('==> Building model...')
     # net = ResNet50(img_channels=3,num_classes=10)
-    net = RexNeXt29_4x64d()
+    # net = RexNeXt29_4x64d()
+    net = DenseNet201()
     net = net.to(device)
 
     if device =='cuda':
@@ -85,7 +91,7 @@ if __name__ == "__main__":
 
     #Use check point
     args.resume = False
-    print("Want to use net in checkpoint", args.resume)
+    print("Want to resume model", args.resume)
     if args.resume:
         #Load checkpoint
         print('==> Resuming from checkpoint..')
@@ -124,6 +130,13 @@ if __name__ == "__main__":
             
             progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                         % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
+
+        acc_train = 100.*correct/total
+        loss_train = train_loss/(batch_idx+1)
+
+        return acc_train, loss_train
+            
+            
             
     # Test
     def test(epoch):
@@ -145,6 +158,10 @@ if __name__ == "__main__":
 
                 progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                             % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
+            acc_test = 100.*correct/total
+            loss_test = test_loss/(batch_idx+1)
+
+                
 
         # Save checkpoint.
         acc = 100.*correct/total
@@ -155,13 +172,59 @@ if __name__ == "__main__":
                 'acc': acc,
                 'epoch': epoch,
             }
-            if not os.path.isdir('checkpoint'):
-                os.mkdir('checkpoint')
+            if not os.path.isdir('./checkpoint'):
+                os.mkdir('./checkpoint')
             torch.save(state, './checkpoint/ckpt.pth')
             best_acc = acc
-            
+        
+        return acc_test, loss_test
 
-    for epoch in range(start_epoch, start_epoch+200):
-        train(epoch)
-        test(epoch)
+#Run 
+    acc_array_train=[]
+    acc_array_test=[]   
+    loss_array_train=[]     
+    loss_array_test=[] 
+    for epoch in range(start_epoch, start_epoch+epoch_plush ):
+        acc_train, loss_train= train(epoch)
+        acc_test, loss_test = test(epoch)
+
+        acc_array_train.append(acc_train)
+        acc_array_test.append(acc_test)
+        loss_array_train.append(loss_train)
+        loss_array_test.append(loss_train)
         scheduler.step()
+    state = {
+        'Acc_train': acc_array_train,
+        'Loss_train': loss_array_train,
+        'Acc_test' : acc_array_test,
+        'Loss_test' : loss_array_test
+        }
+    if not os.path.isdir('./Code/Acc_Loss'):
+        os.mkdir('./Acc_Loss')
+    torch.save(state,'./Acc_Loss/check.pth')
+
+#Showdata train 
+    draw_fig_2_data(acc_array_test, acc_array_train, start_epoch, epoch_plush,'Epoch','Accurency (%)','./Acc_Loss/fig/acc.png')
+    # index = [a for a in range(start_epoch, start_epoch+epoch_plush,1)]
+    # fig, ax = plt.subplots()
+    # ax.plot(index,acc_array_train, color='red', label='Train')
+    # ax.set_xlabel('Epoch')
+    # ax.set_ylabel('Accurency (%)')
+    # ax.plot(index,acc_array_test, color='blue', label='Test')
+    # ax.legend()
+    # plt.show()
+    # plt.savefig('./Code/Acc_Loss/fig/acc.png')
+
+#Showdata loss
+    draw_fig_2_data(loss_array_test, loss_array_train, start_epoch, epoch_plush,'Epoch','Loss','./Acc_Loss/fig/loss.png')
+    # fig, ax = plt.subplots()
+    # ax.plot(index,loss_array_train, color='red', label='Train')
+    # ax.set_xlabel('Epoch')
+    # ax.set_ylabel('Accurency (%)')
+    # ax.plot(index,loss_array_test, color='blue', label='Test')
+    # ax.legend()
+    # plt.show()
+    # plt.savefig('./Code/Acc_Loss/fig/loss.png')
+
+
+
