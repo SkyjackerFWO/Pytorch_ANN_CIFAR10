@@ -1,5 +1,6 @@
 notebook/
 data/
 checkpoint/
+Acc_Loss/
 __pycache__/
 model/__pycache__/
